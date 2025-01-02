@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/chain-links-game/static/css/main.b165a99a.css",
+    "main.js": "/chain-links-game/static/js/main.1b7c0105.js",
+    "static/js/488.0630402c.chunk.js": "/chain-links-game/static/js/488.0630402c.chunk.js",
+    "index.html": "/chain-links-game/index.html",
+    "main.b165a99a.css.map": "/chain-links-game/static/css/main.b165a99a.css.map",
+    "main.1b7c0105.js.map": "/chain-links-game/static/js/main.1b7c0105.js.map",
+    "488.0630402c.chunk.js.map": "/chain-links-game/static/js/488.0630402c.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.b165a99a.css",
+    "static/js/main.1b7c0105.js"
+  ]
+}
