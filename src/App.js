@@ -1,88 +1,115 @@
 import React, { useState, useEffect } from "react";
-import { signInWithPopup, signOut, auth, provider, db, doc, getDoc, setDoc, updateDoc, onAuthStateChanged } from "./firebase";
-import { AlertCircle } from "lucide-react";
+import { signInWithPopup, signOut, auth, provider, db, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, onAuthStateChanged, addFriendButton } from "./firebase";
 import "./App.css";
 
 const ChainLinks = () => {
-  const [user, setUser] = useState(null); // Logged-in user
-  const [scores, setScores] = useState({ solved: 0, failed: 0 }); // User's score
+  const [user, setUser] = useState(null);
+  const [username, setUsername] = useState("");
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [scores, setScores] = useState({ solved: 0, failed: 0 });
+  const [friends, setFriends] = useState([]);
+  const [friendRequests, setFriendRequests] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
   const [currentPuzzle, setCurrentPuzzle] = useState(0);
   const [revealedWords, setRevealedWords] = useState([0]);
   const [input, setInput] = useState("");
   const [message, setMessage] = useState("");
   const [lives, setLives] = useState(5);
   const [gameWon, setGameWon] = useState(false);
-  const [showHint, setShowHint] = useState(false);
 
   const puzzles = [
     {
       words: ["APPLE", "GRAPE", "PEACH", "BERRY", "LEMON"],
-      hints: [
-        "A type of fruit",
-        "A cluster fruit",
-        "Stone fruit",
-        "Small juicy fruit",
-        "Yellow citrus fruit",
-      ],
-      connections: [
-        "Both are sweet fruits",
-        "Both are edible fruits",
-        "Both are found in orchards",
-        "Both are flavorful",
-      ],
+      hints: ["A type of fruit", "A cluster fruit", "Stone fruit", "Small juicy fruit", "Yellow citrus fruit"],
     },
   ];
 
   useEffect(() => {
-    // Automatically check for logged-in user
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
 
-        // Fetch or initialize user's score
-        const userDoc = doc(db, "scores", currentUser.uid);
+        const userDoc = doc(db, "users", currentUser.uid);
         const docSnap = await getDoc(userDoc);
 
         if (docSnap.exists()) {
-          setScores(docSnap.data());
+          const data = docSnap.data();
+          setUsername(data.username || "");
+          setScores(data.scores || { solved: 0, failed: 0 });
+          fetchFriends(currentUser.uid);
+          fetchLeaderboard(currentUser.uid);
         } else {
-          await setDoc(userDoc, { solved: 0, failed: 0 });
-          setScores({ solved: 0, failed: 0 });
+          await setDoc(userDoc, { username: "", scores: { solved: 0, failed: 0 } });
+          setIsNewUser(true);
         }
       } else {
         setUser(null);
+        setUsername("");
         setScores({ solved: 0, failed: 0 });
+        setFriends([]);
+        setLeaderboard([]);
       }
     });
 
-    return () => unsubscribe(); // Cleanup listener on unmount
+    return () => unsubscribe();
   }, []);
 
-  const handleLogin = async () => {
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const userData = result.user;
-      setUser(userData);
+  const fetchFriends = async (uid) => {
+    const userDoc = doc(db, "users", uid);
+    const friendsCollection = collection(userDoc, "friends");
+    const friendsSnap = await getDocs(friendsCollection);
+    setFriends(friendsSnap.docs.map((doc) => doc.data()));
+  };
 
-      // Fetch or initialize user's score
-      const userDoc = doc(db, "scores", userData.uid);
-      const docSnap = await getDoc(userDoc);
+  const fetchLeaderboard = async (uid) => {
+    const userDoc = doc(db, "users", uid);
+    const friendsCollection = collection(userDoc, "friends");
+    const friendsSnap = await getDocs(friendsCollection);
 
-      if (docSnap.exists()) {
-        setScores(docSnap.data());
-      } else {
-        await setDoc(userDoc, { solved: 0, failed: 0 });
-        setScores({ solved: 0, failed: 0 });
+    const friendStats = [];
+    for (const friendDoc of friendsSnap.docs) {
+      const friendData = await getDoc(doc(db, "users", friendDoc.data().uid));
+      if (friendData.exists()) {
+        friendStats.push({ username: friendData.data().username, solved: friendData.data().scores.solved, failed: friendData.data().scores.failed });
       }
+    }
+    setLeaderboard(friendStats);
+  };
+
+  const sendFriendRequest = async (friendUsername) => {
+    try {
+      const usersQuery = query(collection(db, "users"), where("username", "==", friendUsername));
+      const userSnap = await getDocs(usersQuery);
+
+      if (userSnap.empty) {
+        alert("User not found!");
+        return;
+      }
+
+      const friendUid = userSnap.docs[0].id;
+
+      await addDoc(collection(db, "friendRequests"), { from: user.uid, to: friendUid, status: "pending" });
+      alert("Friend request sent!");
     } catch (error) {
-      console.error("Error logging in:", error);
+      console.error("Error sending friend request:", error);
     }
   };
 
   const handleLogout = async () => {
     await signOut(auth);
     setUser(null);
+    setUsername("");
     setScores({ solved: 0, failed: 0 });
+    setFriends([]);
+    setLeaderboard([]);
+  };
+
+  const saveUsername = async () => {
+    if (!username.trim()) return;
+
+    const userDoc = doc(db, "users", user.uid);
+    await updateDoc(userDoc, { username });
+    setIsNewUser(false);
   };
 
   const checkGuess = async () => {
@@ -99,13 +126,12 @@ const ChainLinks = () => {
         setGameWon(true);
         setMessage("Congratulations! You completed the chain!");
 
-        // Update Firestore stats for games solved
-        const userDoc = doc(db, "scores", user.uid);
+        const userDoc = doc(db, "users", user.uid);
         const docSnap = await getDoc(userDoc);
         if (docSnap.exists()) {
-          const currentScores = docSnap.data();
-          await updateDoc(userDoc, { solved: currentScores.solved + 1 });
-          setScores((prev) => ({ ...prev, solved: currentScores.solved + 1 }));
+          const currentScores = docSnap.data().scores || { solved: 0, failed: 0 };
+          await updateDoc(userDoc, { scores: { solved: currentScores.solved + 1, failed: currentScores.failed } });
+          setScores({ ...currentScores, solved: currentScores.solved + 1 });
         }
       }
     } else {
@@ -114,13 +140,12 @@ const ChainLinks = () => {
       if (lives <= 1) {
         setMessage("Game Over! The complete chain was: " + puzzle.words.join(" → "));
 
-        // Update Firestore stats for games failed
-        const userDoc = doc(db, "scores", user.uid);
+        const userDoc = doc(db, "users", user.uid);
         const docSnap = await getDoc(userDoc);
         if (docSnap.exists()) {
-          const currentScores = docSnap.data();
-          await updateDoc(userDoc, { failed: currentScores.failed + 1 });
-          setScores((prev) => ({ ...prev, failed: currentScores.failed + 1 }));
+          const currentScores = docSnap.data().scores || { solved: 0, failed: 0 };
+          await updateDoc(userDoc, { scores: { solved: currentScores.solved, failed: currentScores.failed + 1 } });
+          setScores({ ...currentScores, failed: currentScores.failed + 1 });
         }
       }
     }
@@ -134,54 +159,100 @@ const ChainLinks = () => {
     setMessage("");
     setLives(5);
     setGameWon(false);
-    setShowHint(false);
   };
 
   return (
-    <div className="card">
+    <div className="container text-center my-5">
       {user ? (
-        <div className="user-info">
-          <p>Welcome, <strong>{user.displayName}</strong></p>
-          <p>Email: {user.email}</p>
-          <button onClick={handleLogout} className="logout-button">
-            Logout
-          </button>
-        </div>
-      ) : (
-        <button onClick={handleLogin} className="login-button">
-          Login with Google
-        </button>
-      )}
-
-      {user && (
         <>
-          <div className="scores">
-            <p>Games Solved: {scores.solved}</p>
-            <p>Games Failed: {scores.failed}</p>
+          <div className="mb-4">
+            <img src={user.photoURL} alt="Profile" className="rounded-circle" style={{ width: "100px", height: "100px", objectFit: "cover" }} />
+            <h5 className="mt-3">{username || "Welcome!"}</h5>
           </div>
-          <h1 className="card-title">Chain Links</h1>
-          <p className="card-description">Connect the words by meaning, not just letters!</p>
-
-          {/* Define the puzzle before rendering */}
-          {puzzles[currentPuzzle] && (
-            <>
-              <div className="lives">
-                {Array.from({ length: 5 }, (_, index) => (
-                  <div key={index} className={`life-box ${index < lives ? "active" : "inactive"}`} />
-                ))}
-              </div>
-              <div className="word-grid">
-                {puzzles[currentPuzzle].words.map((word, index) => (
-                  <div key={index} className={`word-box ${revealedWords.includes(index) ? "revealed" : ""}`}>
-                    {revealedWords.includes(index) ? word : "?????"}
-                    <div className="hint">{puzzles[currentPuzzle].hints[index]}</div>
-                  </div>
-                ))}
-              </div>
-            </>
+          {isNewUser && (
+            <div className="username-input">
+              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter your username" className="form-control" />
+              <button onClick={saveUsername} className="btn btn-primary mt-2">Save Username</button>
+            </div>
           )}
+          <button onClick={handleLogout} className="btn btn-danger mt-4">Logout</button>
 
-          <div className="input-group">
+          <div className="mt-4">
+            <h3>Your Stats</h3>
+            <p>Games Solved: <span className="badge bg-success">{scores.solved}</span></p>
+            <p>Games Failed: <span className="badge bg-danger">{scores.failed}</span></p>
+          </div>
+
+          {/* <div className="mt-4">
+            <h3>Friends</h3>
+            <div className="input-group">
+              <input
+                type="text"
+                id="friend-username"
+                placeholder="Enter friend's username"
+                className="form-control"
+              />
+              <button
+                onClick={() => {
+                  const friendUsername = document.getElementById("friend-username").value;
+                  if (friendUsername.trim()) {
+                    addFriendButton(friendUsername.trim());
+                    document.getElementById("friend-username").value = ""; // Clear input
+                  } else {
+                    alert("Please enter a valid username.");
+                  }
+                }}
+                className="btn btn-primary"
+              >
+                Add Friend
+              </button>
+            </div>
+          </div>
+
+                
+          <div className="mt-4">
+            <h3>Leaderboard</h3>
+            <table className="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Solved</th>
+                  <th>Failed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaderboard.map((friend, index) => (
+                  <tr key={index}>
+                    <td>{friend.username}</td>
+                    <td>{friend.solved}</td>
+                    <td>{friend.failed}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div> */}
+
+          <div className="mt-4">
+            <h3>Current Puzzle</h3>
+            <div className="word-grid">
+              {puzzles[currentPuzzle]?.words.map((word, index) => (
+                <div key={index} className="word-row">
+                  <div
+                    className={`word-box ${
+                      revealedWords.includes(index) ? "revealed" : ""
+                    }`}
+                  >
+                    {revealedWords.includes(index) ? word : "?????"}
+                  </div>
+                  <div className="hint-box">
+                    {puzzles[currentPuzzle]?.hints[index]}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="input-group mt-4">
             <input
               type="text"
               value={input}
@@ -192,24 +263,41 @@ const ChainLinks = () => {
                 }
               }}
               placeholder="Enter next word"
+              className="form-control"
               disabled={gameWon || lives === 0}
             />
-            <button onClick={checkGuess} disabled={!input || gameWon || lives === 0} className="submit-button">
+            <button
+              onClick={checkGuess}
+              disabled={!input || gameWon || lives === 0}
+              className="btn btn-primary"
+            >
               Submit
             </button>
           </div>
+
           {message && (
-            <div className={`alert ${message.includes("Correct") ? "success" : "error"}`}>
-              <AlertCircle className="alert-icon" />
+            <div
+              className={`alert ${
+                message.includes("Correct") ? "alert-success" : "alert-danger"
+              } mt-4`}
+            >
               {message}
             </div>
           )}
+
           {(gameWon || lives === 0) && (
-            <button onClick={newGame} className="next-button">
+            <button onClick={newGame} className="btn btn-success mt-4">
               Play Next Chain
             </button>
           )}
         </>
+      ) : (
+        <button
+          onClick={async () => await signInWithPopup(auth, provider)}
+          className="btn btn-primary"
+        >
+          Login with Google
+        </button>
       )}
     </div>
   );

@@ -5,8 +5,22 @@ import {
   signInWithPopup,
   signOut,
   onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
 } from "firebase/auth";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, enableIndexedDbPersistence } from "firebase/firestore";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  enableIndexedDbPersistence,
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -26,13 +40,57 @@ const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 
 // Enable offline persistence
-enableIndexedDbPersistence(db).catch((err) => {
-  if (err.code === "failed-precondition") {
-    console.error("Offline persistence failed: Multiple tabs open.");
-  } else if (err.code === "unimplemented") {
-    console.error("Offline persistence is not supported by the browser.");
+enableIndexedDbPersistence(db)
+  .catch((err) => {
+    if (err.code === "failed-precondition") {
+      console.error(
+        "Offline persistence failed: Multiple tabs are open. IndexedDB persistence requires a single tab."
+      );
+    } else if (err.code === "unimplemented") {
+      console.error(
+        "Offline persistence is not supported by this browser. Falling back to online mode."
+      );
+    }
+  });
+
+// Set authentication persistence
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log("Authentication persistence set to local storage.");
+  })
+  .catch((error) => {
+    console.error("Error setting authentication persistence:", error);
+  });
+
+// Function to add friend using button
+const addFriendButton = (friendUsername) => {
+  const user = auth.currentUser;
+  if (!user) {
+    console.error("User not authenticated.");
+    return;
   }
-});
+
+  const usersQuery = query(collection(db, "users"), where("username", "==", friendUsername));
+  getDocs(usersQuery)
+    .then((userSnap) => {
+      if (userSnap.empty) {
+        alert("User not found!");
+        return;
+      }
+      const friendUid = userSnap.docs[0].id;
+      return addDoc(collection(db, "friendRequests"), {
+        from: user.uid,
+        to: friendUid,
+        status: "pending",
+      });
+    })
+    .then(() => {
+      alert("Friend request sent!");
+    })
+    .catch((error) => {
+      console.error("Error adding friend:", error);
+    });
+};
 
 // Export functions and objects
 export {
@@ -46,4 +104,10 @@ export {
   getDoc,
   setDoc,
   updateDoc,
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  addFriendButton,
 };
