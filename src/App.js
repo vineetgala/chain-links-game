@@ -10,7 +10,7 @@ const ChainLinks = () => {
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
-  const [currentPuzzle, setCurrentPuzzle] = useState(0);
+  let [currentPuzzle, setCurrentPuzzle] = useState(0);
   const [revealedWords, setRevealedWords] = useState([0]);
   const [input, setInput] = useState("");
   const [message, setMessage] = useState("");
@@ -155,7 +155,7 @@ const ChainLinks = () => {
       setMessage(`Incorrect. ${lives - 1} lives remaining.`);
       if (lives <= 1) {
         setMessage("Game Over! The complete chain was: " + puzzle.words.join(" → "));
-
+        currentPuzzle = currentPuzzle+1;
         const userDoc = doc(db, "users", user.uid);
         const docSnap = await getDoc(userDoc);
         if (docSnap.exists()) {
