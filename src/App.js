@@ -31,17 +31,14 @@ const ChainLinks = () => {
         "Both are flavorful",
       ],
     },
-    // Add more puzzles here...
   ];
 
-  // Handle Google Login
   const handleLogin = async () => {
     try {
       const result = await signInWithPopup(auth, provider);
       const userData = result.user;
       setUser(userData);
 
-      // Fetch or initialize user's score
       const userDoc = doc(db, "scores", userData.uid);
       const docSnap = await getDoc(userDoc);
 
@@ -56,7 +53,6 @@ const ChainLinks = () => {
     }
   };
 
-  // Handle Logout
   const handleLogout = async () => {
     await signOut(auth);
     setUser(null);
@@ -77,7 +73,6 @@ const ChainLinks = () => {
         setGameWon(true);
         setMessage("Congratulations! You completed the chain!");
 
-        // Update user's score for a solved game
         const userDoc = doc(db, "scores", user.uid);
         await updateDoc(userDoc, { solved: scores.solved + 1 });
         setScores((prev) => ({ ...prev, solved: prev.solved + 1 }));
@@ -88,7 +83,6 @@ const ChainLinks = () => {
       if (lives <= 1) {
         setMessage("Game Over! The complete chain was: " + puzzle.words.join(" → "));
 
-        // Update user's score for a failed game
         const userDoc = doc(db, "scores", user.uid);
         await updateDoc(userDoc, { failed: scores.failed + 1 });
         setScores((prev) => ({ ...prev, failed: prev.failed + 1 }));
@@ -110,15 +104,13 @@ const ChainLinks = () => {
   return (
     <div className="card">
       {user ? (
-        <>
+        <div className="user-info">
+          <p>Welcome, <strong>{user.displayName}</strong></p>
+          <p>Email: {user.email}</p>
           <button onClick={handleLogout} className="logout-button">
-            Logout ({user.displayName})
+            Logout
           </button>
-          <div className="scores">
-            <p>Games Solved: {scores.solved}</p>
-            <p>Games Failed: {scores.failed}</p>
-          </div>
-        </>
+        </div>
       ) : (
         <button onClick={handleLogin} className="login-button">
           Login with Google
@@ -127,6 +119,10 @@ const ChainLinks = () => {
 
       {user && (
         <>
+          <div className="scores">
+            <p>Games Solved: {scores.solved}</p>
+            <p>Games Failed: {scores.failed}</p>
+          </div>
           <h1 className="card-title">Chain Links</h1>
           <p className="card-description">Connect the words by meaning, not just letters!</p>
           <div className="lives">
