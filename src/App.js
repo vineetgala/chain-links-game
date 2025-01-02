@@ -155,7 +155,7 @@ const ChainLinks = () => {
       setMessage(`Incorrect. ${lives - 1} lives remaining.`);
       if (lives <= 1) {
         setMessage("Game Over! The complete chain was: " + puzzle.words.join(" → "));
-        currentPuzzle = currentPuzzle+1;
+        currentPuzzle = ((currentPuzzle + 1) % puzzles.length)+1;
         const userDoc = doc(db, "users", user.uid);
         const docSnap = await getDoc(userDoc);
         if (docSnap.exists()) {
