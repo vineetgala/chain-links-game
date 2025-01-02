@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/chain-links-game/static/css/main.79e075d6.css",
-    "main.js": "/chain-links-game/static/js/main.f6152654.js",
+    "main.css": "/chain-links-game/static/css/main.0687ef95.css",
+    "main.js": "/chain-links-game/static/js/main.092392be.js",
     "static/js/488.0630402c.chunk.js": "/chain-links-game/static/js/488.0630402c.chunk.js",
     "index.html": "/chain-links-game/index.html",
-    "main.79e075d6.css.map": "/chain-links-game/static/css/main.79e075d6.css.map",
-    "main.f6152654.js.map": "/chain-links-game/static/js/main.f6152654.js.map",
+    "main.0687ef95.css.map": "/chain-links-game/static/css/main.0687ef95.css.map",
+    "main.092392be.js.map": "/chain-links-game/static/js/main.092392be.js.map",
     "488.0630402c.chunk.js.map": "/chain-links-game/static/js/488.0630402c.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.79e075d6.css",
-    "static/js/main.f6152654.js"
+    "static/css/main.0687ef95.css",
+    "static/js/main.092392be.js"
   ]
 }
