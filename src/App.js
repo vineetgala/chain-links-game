@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { signInWithPopup, signOut, auth, provider, db, doc, getDoc, setDoc, updateDoc } from "./firebase";
+import { signInWithPopup, signOut, auth, provider, db, doc, getDoc, setDoc, updateDoc, onAuthStateChanged } from "./firebase";
 import { AlertCircle } from "lucide-react";
 import "./App.css";
 
@@ -33,12 +33,38 @@ const ChainLinks = () => {
     },
   ];
 
+  useEffect(() => {
+    // Automatically check for logged-in user
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+
+        // Fetch or initialize user's score
+        const userDoc = doc(db, "scores", currentUser.uid);
+        const docSnap = await getDoc(userDoc);
+
+        if (docSnap.exists()) {
+          setScores(docSnap.data());
+        } else {
+          await setDoc(userDoc, { solved: 0, failed: 0 });
+          setScores({ solved: 0, failed: 0 });
+        }
+      } else {
+        setUser(null);
+        setScores({ solved: 0, failed: 0 });
+      }
+    });
+
+    return () => unsubscribe(); // Cleanup listener on unmount
+  }, []);
+
   const handleLogin = async () => {
     try {
       const result = await signInWithPopup(auth, provider);
       const userData = result.user;
       setUser(userData);
 
+      // Fetch or initialize user's score
       const userDoc = doc(db, "scores", userData.uid);
       const docSnap = await getDoc(userDoc);
 
@@ -73,9 +99,14 @@ const ChainLinks = () => {
         setGameWon(true);
         setMessage("Congratulations! You completed the chain!");
 
+        // Update Firestore stats for games solved
         const userDoc = doc(db, "scores", user.uid);
-        await updateDoc(userDoc, { solved: scores.solved + 1 });
-        setScores((prev) => ({ ...prev, solved: prev.solved + 1 }));
+        const docSnap = await getDoc(userDoc);
+        if (docSnap.exists()) {
+          const currentScores = docSnap.data();
+          await updateDoc(userDoc, { solved: currentScores.solved + 1 });
+          setScores((prev) => ({ ...prev, solved: currentScores.solved + 1 }));
+        }
       }
     } else {
       setLives(lives - 1);
@@ -83,9 +114,14 @@ const ChainLinks = () => {
       if (lives <= 1) {
         setMessage("Game Over! The complete chain was: " + puzzle.words.join(" → "));
 
+        // Update Firestore stats for games failed
         const userDoc = doc(db, "scores", user.uid);
-        await updateDoc(userDoc, { failed: scores.failed + 1 });
-        setScores((prev) => ({ ...prev, failed: prev.failed + 1 }));
+        const docSnap = await getDoc(userDoc);
+        if (docSnap.exists()) {
+          const currentScores = docSnap.data();
+          await updateDoc(userDoc, { failed: currentScores.failed + 1 });
+          setScores((prev) => ({ ...prev, failed: currentScores.failed + 1 }));
+        }
       }
     }
     setInput("");
@@ -125,24 +161,36 @@ const ChainLinks = () => {
           </div>
           <h1 className="card-title">Chain Links</h1>
           <p className="card-description">Connect the words by meaning, not just letters!</p>
-          <div className="lives">
-            {Array.from({ length: 5 }, (_, index) => (
-              <div key={index} className={`life-box ${index < lives ? "active" : "inactive"}`} />
-            ))}
-          </div>
-          <div className="word-grid">
-            {puzzle.words.map((word, index) => (
-              <div key={index} className={`word-box ${revealedWords.includes(index) ? "revealed" : ""}`}>
-                {revealedWords.includes(index) ? word : "?????"}
-                <div className="hint">{puzzle.hints[index]}</div>
+
+          {/* Define the puzzle before rendering */}
+          {puzzles[currentPuzzle] && (
+            <>
+              <div className="lives">
+                {Array.from({ length: 5 }, (_, index) => (
+                  <div key={index} className={`life-box ${index < lives ? "active" : "inactive"}`} />
+                ))}
               </div>
-            ))}
-          </div>
+              <div className="word-grid">
+                {puzzles[currentPuzzle].words.map((word, index) => (
+                  <div key={index} className={`word-box ${revealedWords.includes(index) ? "revealed" : ""}`}>
+                    {revealedWords.includes(index) ? word : "?????"}
+                    <div className="hint">{puzzles[currentPuzzle].hints[index]}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           <div className="input-group">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && input.trim()) {
+                  checkGuess();
+                }
+              }}
               placeholder="Enter next word"
               disabled={gameWon || lives === 0}
             />
