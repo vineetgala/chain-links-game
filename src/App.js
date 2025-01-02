@@ -19,9 +19,25 @@ const ChainLinks = () => {
 
   const puzzles = [
     {
-      words: ["APPLE", "GRAPE", "PEACH", "BERRY", "LEMON"],
-      hints: ["A type of fruit", "A cluster fruit", "Stone fruit", "Small juicy fruit", "Yellow citrus fruit"],
+      words: ["DOG", "CAT", "MOUSE", "RABBIT", "HORSE"],
+      hints: ["Man's best friend", "A feline pet", "A small rodent", "Hops around", "A large farm animal"],
     },
+    {
+      words: ["CAR", "BUS", "TRAIN", "PLANE", "BOAT"],
+      hints: ["Four wheels", "Public transport", "Runs on tracks", "Flies in the sky", "Floats on water"],
+    },
+    {
+      words: ["ROSE", "LILY", "TULIP", "DAISY", "SUNFLOWER"],
+      hints: ["A symbol of love", "Often white", "Spring flower", "Common wildflower", "Yellow and tall"],
+    },
+    {
+      words: ["PYTHON", "JAVA", "C++", "JAVASCRIPT", "RUBY"],
+      hints: ["A snake and a programming language", "Popular for enterprise applications", "Used for system programming", "Web development staple", "Precious gem and language"],
+    },
+    {
+      words: ["EARTH", "MARS", "VENUS", "SATURN", "JUPITER"],
+      hints: ["Our home planet", "The red planet", "Closest to Earth in size", "Known for its rings", "Largest in the solar system"],
+    },    
   ];
 
   useEffect(() => {
